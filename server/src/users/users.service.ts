@@ -8,7 +8,10 @@ import { type ReturnModelType } from '@typegoose/typegoose';
 import { InjectModel } from '@m8a/nestjs-typegoose';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { Types } from 'mongoose';
+<<<<<<< HEAD
 import { throwError } from 'rxjs';
+=======
+>>>>>>> 58b45b5 (Implement note management and user profile features)
 
 @Injectable()
 export class UsersService {

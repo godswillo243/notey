@@ -1,26 +1,181 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { InjectModel } from '@m8a/nestjs-typegoose';
+import { type ReturnModelType } from '@typegoose/typegoose';
+import { Note } from 'src/db/models/note.model';
+import { UsersService } from 'src/users/users.service';
+import { Document, Types } from 'mongoose';
+import { GetNotesQueryDto } from './dto/get-notes-query.dto';
 
 @Injectable()
 export class NotesService {
-  create(createNoteDto: CreateNoteDto) {
-    return 'This action adds a new note';
+  constructor(
+    @InjectModel(Note)
+    private readonly noteModel: ReturnModelType<typeof Note>,
+    private readonly userService: UsersService,
+  ) {}
+
+  async create(createNoteDto: CreateNoteDto, userId: string) {
+    const note = await this.noteModel.create({
+      ...createNoteDto,
+      owner: userId,
+    });
+    return this.serialize(note);
   }
 
-  findAll() {
+  find() {
     return `This action returns all notes`;
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} note`;
+  async findById(id: string) {
+    if (!Types.ObjectId.isValid(id))
+      throw new BadRequestException('Invalid id.');
+
+    const note = (await this.noteModel.findById(
+      new Types.ObjectId(id),
+    )) as Note;
+
+    if (!note) throw new NotFoundException('Note not found.');
+
+    return this.serialize(note);
   }
 
-  update(id: number, updateNoteDto: UpdateNoteDto) {
-    return `This action updates a #${id} note`;
+  async findUserNotes(userId: string, limit: number = 32) {
+    const notes = (await this.noteModel.find(
+      { owner: userId },
+      {},
+      { limit, sort: { createdAt: -1 } },
+    )) as unknown as Note[];
+    return notes.map((note) => this.serialize(note));
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} note`;
+  async findUserNotesSorted(userId: string, query: GetNotesQueryDto) {
+    const { limit, search, page, archived, pinned } = query;
+
+    const filter: Record<string, any> = {
+      owner: new Types.ObjectId(userId),
+    };
+
+    if (archived !== undefined) filter.archived = archived;
+    if (pinned !== undefined) filter.pinned = pinned;
+    if (search)
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { content: { $regex: search, $options: 'i' } },
+      ];
+
+    const notes = await this.noteModel.find(filter, null, {
+      limit,
+      skip: (page - 1) * limit,
+      sort: { createdAt: -1 },
+    });
+    return notes.map((note) => this.serialize(note));
+  }
+
+  async update(id: string, userId: string, updateNoteDto: UpdateNoteDto) {
+    if (!Types.ObjectId.isValid(id))
+      throw new BadRequestException('Invalid id.');
+    const note = await this.noteModel.findById(new Types.ObjectId(id));
+    if (!note) throw new NotFoundException('Note not found.');
+    if (note.owner._id.toString() !== userId)
+      throw new UnauthorizedException(
+        'You cannot update a note that you do not own.',
+      );
+
+    const updatedNote = (await this.noteModel.findByIdAndUpdate(
+      id,
+      updateNoteDto,
+      { returnDocument: 'after' },
+    )) as Note;
+
+    return this.serialize(updatedNote);
+  }
+
+  async pin(id: string, userId: string) {
+    const note = await this.findOwnedNote(id, userId);
+
+    let updatedNote: Note | null = null;
+    if (!note.pinned) {
+      updatedNote = await this.noteModel.findByIdAndUpdate(
+        id,
+        { pinned: !note.pinned },
+        { returnDocument: 'after' },
+      );
+    } else {
+      updatedNote = await this.noteModel.findByIdAndUpdate(
+        id,
+        { pinned: !note.pinned },
+        { returnDocument: 'after' },
+      );
+    }
+
+    return this.serialize(updatedNote as Note);
+  }
+  async archive(id: string, userId: string) {
+    const note = await this.findOwnedNote(id, userId);
+
+    let updatedNote: Note | null = null;
+    if (!note.archived) {
+      updatedNote = await this.noteModel.findByIdAndUpdate(
+        id,
+        { archived: true },
+        { returnDocument: 'after' },
+      );
+    } else {
+      updatedNote = await this.noteModel.findByIdAndUpdate(
+        id,
+        { archived: false },
+        { returnDocument: 'after' },
+      );
+    }
+
+    return this.serialize(updatedNote as Note);
+  }
+  async remove(id: string, userId: string) {
+    const note = await this.findOwnedNote(id, userId);
+
+    await this.noteModel.findByIdAndDelete(note.id);
+    return { message: 'Note removed successfully.' };
+  }
+
+  private async findOwnedNote(id: string, userId: string) {
+    // validate id
+    if (!Types.ObjectId.isValid(id))
+      throw new BadRequestException('Invalid id.');
+    // find note
+    const note = await this.noteModel.findById(new Types.ObjectId(id));
+    if (!note) {
+      throw new NotFoundException('Note not found.');
+    }
+    // check ownership
+    if (note.owner._id.toString() !== userId)
+      throw new UnauthorizedException(
+        'You cannot access a note that you do not own.',
+      );
+    return note;
+  }
+
+  serialize(note: Note): Note {
+    return {
+      archived: note.archived,
+      collaborators: note.collaborators,
+      color: note.color,
+      content: note.content,
+      createdAt: note.createdAt,
+      deleted: note.deleted,
+      id: note.id,
+      isPublic: note.isPublic,
+      owner: note.owner,
+      pinned: note.pinned,
+      tags: note.tags,
+      title: note.title,
+      updatedAt: note.updatedAt,
+    };
   }
 }

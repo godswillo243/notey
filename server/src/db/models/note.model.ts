@@ -4,6 +4,7 @@ import { User } from './user.model';
 @modelOptions({
   schemaOptions: {
     timestamps: true,
+    id: true,
     versionKey: false,
   },
 })
@@ -23,6 +24,8 @@ import { User } from './user.model';
   },
 )
 export class Note {
+  public id!: string;
+
   @prop({
     minlength: 3,
     maxlength: 25,
@@ -31,7 +34,7 @@ export class Note {
   public title!: string;
 
   @prop({
-    maxlength: 256,
+    maxlength: 512,
     required: true,
   })
   public content!: string;
@@ -55,6 +58,11 @@ export class Note {
   @prop({
     default: false,
   })
+  public deleted!: boolean;
+
+  @prop({
+    default: false,
+  })
   public isPublic!: boolean;
 
   @prop({ default: () => [String] })
@@ -62,4 +70,7 @@ export class Note {
 
   @prop({ default: '' })
   public color!: string;
+
+  public createdAt: Date;
+  public updatedAt: Date;
 }
