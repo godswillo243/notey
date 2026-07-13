@@ -1,9 +1,3 @@
-<<<<<<< HEAD
-export class CreateNoteDto {
-  title: string;
-  content: string;
-  color: string;
-=======
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsArray,
@@ -44,5 +38,4 @@ export class CreateNoteDto {
   @IsString()
   @MaxLength(32)
   public color!: string;
->>>>>>> 58b45b5 (Implement note management and user profile features)
 }
