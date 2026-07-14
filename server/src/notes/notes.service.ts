@@ -144,6 +144,40 @@ export class NotesService {
     return { message: 'Note removed successfully.' };
   }
 
+  async getTrashed(userId: string) {
+    const trashedNotes = await this.noteModel.find({
+      owner: userId,
+      deletedAt: { $exists: true },
+    });
+    return trashedNotes.map((note) => this.serialize(note));
+  }
+
+  async moveToTrash(id: string, userId: string) {
+    const note = await this.findOwnedNote(id, userId);
+
+    if (note.deletedAt === null)
+      throw new BadRequestException('Note is already in trash');
+
+    await this.noteModel.findByIdAndUpdate(note.id, {
+      deletedAt: new Date(Date.now()).toISOString(),
+    });
+    return { message: 'Note moved to trash successfully.' };
+  }
+
+  async restoreFromTrash(id: string, userId: string) {
+    const note = await this.findOwnedNote(id, userId);
+
+    if (note.deletedAt !== null)
+      throw new BadRequestException('Note is not in trash');
+
+    await this.noteModel.findByIdAndUpdate(id, {
+      $unset: {
+        deletedAt: 1,
+      },
+    });
+    return { message: 'Note removed from trash successfully.' };
+  }
+
   private async findOwnedNote(id: string, userId: string) {
     // validate id
     if (!Types.ObjectId.isValid(id))
@@ -169,6 +203,7 @@ export class NotesService {
       content: note.content,
       createdAt: note.createdAt,
       deleted: note.deleted,
+      deletedAt: note.deletedAt,
       id: note.id,
       isPublic: note.isPublic,
       owner: note.owner,

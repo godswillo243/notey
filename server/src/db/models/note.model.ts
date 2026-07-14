@@ -71,6 +71,9 @@ export class Note {
   @prop({ default: '' })
   public color!: string;
 
+  @prop({})
+  public deletedAt: Date;
+
   public createdAt: Date;
   public updatedAt: Date;
 }

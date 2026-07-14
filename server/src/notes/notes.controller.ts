@@ -52,6 +52,20 @@ export class NotesController {
     return this.notesService.remove(id, user.id);
   }
 
+  @Delete('trash')
+  getTrashedNotes(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.notesService.getTrashed(user.id);
+  }
+  @Delete(':id/trash')
+  trash(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.notesService.moveToTrash(id, user.id);
+  }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.notesService.restoreFromTrash(id, user.id);
+  }
+
   @Patch(':id/pin')
   pin(@Param('id') id: string, @CurrentUser() user: User) {
     return this.notesService.pin(id, user.id);
