@@ -8,12 +8,14 @@ import { type ReturnModelType } from '@typegoose/typegoose';
 import { InjectModel } from '@m8a/nestjs-typegoose';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { Types } from 'mongoose';
+import { UploadService } from 'src/uploads/upload.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User)
     private readonly userModel: ReturnModelType<typeof User>,
+    private readonly uploadService: UploadService,
   ) {}
 
   async findByEmail(email: string) {
@@ -60,6 +62,15 @@ export class UsersService {
     })) as unknown as User;
 
     return this.serialize(user);
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found.');
+
+    const result = await this.uploadService.uploadImages([file], 'avatars');
+    await this.update(userId, { avatar: result[0] });
+    return { avatar: result[0], message: 'Avatar updated successfully.' };
   }
 
   serialize(user: User & { id: string }) {

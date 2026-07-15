@@ -178,6 +178,51 @@ export class NotesService {
     return { message: 'Note removed from trash successfully.' };
   }
 
+  async getStats(userId: string) {
+    const [stats]: Record<string, number>[] = await this.noteModel.aggregate([
+      {
+        $match: {
+          owner: new Types.ObjectId(userId),
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          pinned: {
+            $sum: {
+              $cond: ['$pinned', 1, 0],
+            },
+          },
+
+          archived: {
+            $sum: {
+              $cond: ['$archived', 1, 0],
+            },
+          },
+          public: {
+            $sum: {
+              $cond: ['$isPublic', 1, 0],
+            },
+          },
+          trash: {
+            $sum: {
+              $cond: [{ $ne: ['$deletedAt', null] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    return (
+      stats ?? {
+        total: 0,
+        pinned: 0,
+        archived: 0,
+        trash: 0,
+      }
+    );
+  }
   private async findOwnedNote(id: string, userId: string) {
     // validate id
     if (!Types.ObjectId.isValid(id))
