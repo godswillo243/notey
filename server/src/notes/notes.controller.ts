@@ -7,6 +7,11 @@ import {
   Param,
   Delete,
   Query,
+  UseInterceptors,
+  UploadedFiles,
+  ParseFilePipe,
+  MaxFileSizeValidator,
+  FileTypeValidator,
 } from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
@@ -14,6 +19,8 @@ import { UpdateNoteDto } from './dto/update-note.dto';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 import { User } from 'src/db/models/user.model';
 import { GetNotesQueryDto } from './dto/get-notes-query.dto';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { RemoveAttachmentDto } from './dto/remove-attachment-dto';
 
 @Controller('notes')
 export class NotesController {
@@ -73,5 +80,36 @@ export class NotesController {
   @Patch(':id/archive')
   archive(@Param('id') id: string, @CurrentUser() user: User) {
     return this.notesService.archive(id, user.id);
+  }
+
+  @Post(':id/attachment')
+  @UseInterceptors(FilesInterceptor('files'))
+  async addAttachments(
+    @UploadedFiles(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({
+            maxSize: 5 * 1024 * 1024,
+          }),
+          new FileTypeValidator({
+            fileType: /(jpg|jpeg|png|webp)$/,
+          }),
+        ],
+      }),
+    )
+    files: Express.Multer.File[],
+    @CurrentUser() user: User,
+    @Query('id') noteId: string,
+  ) {
+    return this.notesService.addAttachments(user.id, noteId, files);
+  }
+
+  @Patch(':id/attachment')
+  async removeAttachments(
+    @Body() dto: RemoveAttachmentDto,
+    @Query('id') noteId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.notesService.removeAttachments(dto.ids, noteId, user.id);
   }
 }

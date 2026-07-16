@@ -68,9 +68,23 @@ export class UsersService {
     const user = await this.findById(userId);
     if (!user) throw new NotFoundException('User not found.');
 
+    if (user.avatar) await this.uploadService.removeImages([user.avatar]);
+
     const result = await this.uploadService.uploadImages([file], 'avatars');
-    await this.update(userId, { avatar: result[0] });
-    return { avatar: result[0], message: 'Avatar updated successfully.' };
+    await this.update(userId, { avatar: result[0].secure_url });
+    return {
+      avatar: result[0].secure_url,
+      message: 'Avatar updated successfully.',
+    };
+  }
+  async removeAvatar(userId: string) {
+    const user = await this.findById(userId);
+    if (!user) throw new NotFoundException('User not found.');
+
+    if (user.avatar) await this.uploadService.removeImages([user.avatar]);
+
+    await this.update(userId, { avatar: '' });
+    return { avatar: null, message: 'Avatar removed successfully.' };
   }
 
   serialize(user: User & { id: string }) {

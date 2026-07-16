@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   FileTypeValidator,
   Get,
   MaxFileSizeValidator,
@@ -55,5 +56,10 @@ export class UsersController {
     @CurrentUser() user: User,
   ) {
     return this.usersService.uploadAvatar(user.id, file);
+  }
+
+  @Delete('avatar')
+  async removeAvatar(@CurrentUser() user: User) {
+    return this.usersService.removeAvatar(user.id);
   }
 }

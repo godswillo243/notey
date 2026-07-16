@@ -12,13 +12,18 @@ import { Note } from 'src/db/models/note.model';
 import { UsersService } from 'src/users/users.service';
 import { Document, Types } from 'mongoose';
 import { GetNotesQueryDto } from './dto/get-notes-query.dto';
+import { UploadService } from 'src/uploads/upload.service';
+import { Attachment } from 'src/db/models/attachment.model';
 
 @Injectable()
 export class NotesService {
   constructor(
     @InjectModel(Note)
     private readonly noteModel: ReturnModelType<typeof Note>,
+    @InjectModel(Attachment)
+    private readonly attachmentModel: ReturnModelType<typeof Attachment>,
     private readonly userService: UsersService,
+    private readonly uploadService: UploadService,
   ) {}
 
   async create(createNoteDto: CreateNoteDto, userId: string) {
@@ -37,9 +42,9 @@ export class NotesService {
     if (!Types.ObjectId.isValid(id))
       throw new BadRequestException('Invalid id.');
 
-    const note = (await this.noteModel.findById(
-      new Types.ObjectId(id),
-    )) as Note;
+    const note = (await this.noteModel
+      .findById(new Types.ObjectId(id))
+      .populate('attachments')) as Note;
 
     if (!note) throw new NotFoundException('Note not found.');
 
@@ -47,11 +52,9 @@ export class NotesService {
   }
 
   async findUserNotes(userId: string, limit: number = 32) {
-    const notes = (await this.noteModel.find(
-      { owner: userId },
-      {},
-      { limit, sort: { createdAt: -1 } },
-    )) as unknown as Note[];
+    const notes = (await this.noteModel
+      .find({ owner: userId }, {}, { limit, sort: { createdAt: -1 } })
+      .populate('attachments')) as unknown as Note[];
     return notes.map((note) => this.serialize(note));
   }
 
@@ -70,26 +73,21 @@ export class NotesService {
         { content: { $regex: search, $options: 'i' } },
       ];
 
-    const notes = await this.noteModel.find(filter, null, {
-      limit,
-      skip: (page - 1) * limit,
-      sort: { createdAt: -1 },
-    });
+    const notes = await this.noteModel
+      .find(filter, null, {
+        limit,
+        skip: (page - 1) * limit,
+        sort: { createdAt: -1 },
+      })
+      .populate('attachments');
     return notes.map((note) => this.serialize(note));
   }
 
   async update(id: string, userId: string, updateNoteDto: UpdateNoteDto) {
-    if (!Types.ObjectId.isValid(id))
-      throw new BadRequestException('Invalid id.');
-    const note = await this.noteModel.findById(new Types.ObjectId(id));
-    if (!note) throw new NotFoundException('Note not found.');
-    if (note.owner._id.toString() !== userId)
-      throw new UnauthorizedException(
-        'You cannot update a note that you do not own.',
-      );
+    const note = await this.findOwnedNote(id, userId);
 
     const updatedNote = (await this.noteModel.findByIdAndUpdate(
-      id,
+      note.id,
       updateNoteDto,
       { returnDocument: 'after' },
     )) as Note;
@@ -223,6 +221,58 @@ export class NotesService {
       }
     );
   }
+
+  async addAttachments(
+    userId: string,
+    noteId: string,
+    files: Express.Multer.File[],
+  ) {
+    const note = await this.findOwnedNote(noteId, userId);
+    const results = await this.uploadService.uploadImages(files, 'attachments');
+    const attachmentFields = results.map(
+      ({ secure_url, bytes, public_id, original_filename, resource_type }) => ({
+        url: secure_url,
+        publicId: public_id,
+        fileName: original_filename,
+        mimeType: resource_type,
+        size: bytes,
+      }),
+    );
+    const attachments = await this.attachmentModel.create(attachmentFields);
+    const attachmentIds = [
+      ...note.attachments.map(({ id }) => id),
+      ...attachments.map(({ id }) => id),
+    ];
+    await this.noteModel.findByIdAndUpdate(note.id, {
+      attachments: attachmentIds,
+    });
+
+    return attachments.map(({ url, id, mimeType, size }) => ({
+      id,
+      url,
+      mimeType,
+      size,
+    }));
+  }
+
+  async removeAttachments(
+    attachmentIds: string[],
+    noteId: string,
+    userId: string,
+  ) {
+    const note = await this.findOwnedNote(noteId, userId);
+    const attachments = await this.attachmentModel.find({
+      id: { $in: attachmentIds },
+      note: note.id,
+    });
+
+    await this.uploadService.removeImages(attachments.map(({ url }) => url));
+
+    await this.attachmentModel.deleteMany({ id: { $in: attachmentIds } });
+
+    return { message: 'Attachments deleted successfully' };
+  }
+
   private async findOwnedNote(id: string, userId: string) {
     // validate id
     if (!Types.ObjectId.isValid(id))
@@ -243,6 +293,7 @@ export class NotesService {
   serialize(note: Note): Note {
     return {
       archived: note.archived,
+      attachments: note.attachments,
       collaborators: note.collaborators,
       color: note.color,
       content: note.content,

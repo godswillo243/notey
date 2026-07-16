@@ -1,5 +1,6 @@
 import { index, modelOptions, prop, type Ref } from '@typegoose/typegoose';
 import { User } from './user.model';
+import { Attachment } from './attachment.model';
 
 @modelOptions({
   schemaOptions: {
@@ -64,6 +65,12 @@ export class Note {
     default: false,
   })
   public isPublic!: boolean;
+
+  @prop({
+    type: () => Attachment,
+    default: [],
+  })
+  attachments!: Attachment[];
 
   @prop({ default: () => [String] })
   public tags!: string[];
