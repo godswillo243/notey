@@ -16,9 +16,11 @@ import { JwtModule } from '@nestjs/jwt';
     }),
     TypegooseModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => ({
-        uri: configService.getOrThrow<string>('MONGODB_URI'),
-      }),
+      useFactory: (configService: ConfigService) => {
+        const uri = configService.getOrThrow<string>('MONGODB_URI');
+        console.log('Mongo URI:', uri);
+        return { uri };
+      },
     }),
     JwtModule.register({ global: true }),
     UsersModule,

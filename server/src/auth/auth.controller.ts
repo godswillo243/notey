@@ -94,12 +94,14 @@ export class AuthController {
 
   // POST /api/auth/forgot-password
   @Post('forgot-password')
+  @Public()
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
 
   // POST /api/auth/reset-password?token=...
   @Post('reset-password')
+  @Public()
   resetPassword(@Query('token') token: string, @Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(token, dto.password);
   }

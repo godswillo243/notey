@@ -58,7 +58,7 @@ export class EmailService implements OnModuleInit {
 
   async sendPasswordResetEmail(email: string, token: string) {
     const clientUrl = this.configService.getOrThrow<string>('CLIENT_URL');
-    const resetUrl = `${clientUrl}/api/auth/reset-password?token=${token}`;
+    const resetUrl = `${clientUrl}/auth/reset-password?token=${token}`;
 
     await this.sendEmail(
       email,

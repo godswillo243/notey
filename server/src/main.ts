@@ -11,7 +11,10 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
 
-  // @typescript-eslint/no-unsafe-call
+  app.enableCors({
+    origin: configService.getOrThrow<string>('CLIENT_URL'),
+    credentials: true,
+  });
   app.use(cookieParser());
   app.setGlobalPrefix('api');
 
