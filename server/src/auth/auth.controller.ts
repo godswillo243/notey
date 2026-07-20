@@ -69,10 +69,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const cookies = req.cookies as Record<string, string>;
-    const refreshToken = cookies.refresh_token;
-
-    return this.authService.refresh(refreshToken, res);
+    return this.authService.refresh(req, res);
   }
 
   // POST /api/auth/logout

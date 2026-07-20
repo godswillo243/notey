@@ -3,8 +3,10 @@ import { Button } from '../ui/button';
 import FormField from '../form-field';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { LoginSchema, RegisterSchema } from '#/lib/validations';
-import { Loader2Icon } from 'lucide-react';
+import { Loader2Icon, TriangleAlertIcon } from 'lucide-react';
 import { AuthAction } from '#/lib/api/actions/auth';
+import { setToken } from '#/utils/token';
+import { useState } from 'react';
 
 interface AuthFormProps {
   mode: 'register' | 'login';
@@ -15,6 +17,7 @@ const AuthForm = ({ mode }: AuthFormProps) => {
   const navigate = useNavigate({
     from: isRegister ? '/auth/sign-up' : '/auth/login',
   });
+  const [errorMsg, setErrorMsg] = useState('');
   const form = useForm({
     defaultValues: {
       email: '',
@@ -25,6 +28,7 @@ const AuthForm = ({ mode }: AuthFormProps) => {
       onSubmit: isRegister ? RegisterSchema : LoginSchema,
     },
     onSubmit: async ({ value }) => {
+      setErrorMsg('');
       try {
         if (isRegister) {
           const data = await AuthAction.register(value);
@@ -32,10 +36,11 @@ const AuthForm = ({ mode }: AuthFormProps) => {
           return;
         }
         const data = await AuthAction.login(value);
-        console.log(data);
-        // if (data) navigate({ to: '/' })
+        setToken(data.accessToken);
+        if (data) navigate({ to: '/' });
       } catch (error) {
-        console.log(error);
+        const msg = error.response?.data?.message || '';
+        setErrorMsg(msg);
       }
     },
   });
@@ -81,6 +86,14 @@ const AuthForm = ({ mode }: AuthFormProps) => {
           <p className="text-end text-muted-foreground hover:underline">
             <Link to="/auth/forgot-password">Forgot password</Link>
           </p>
+          {errorMsg && (
+            <div className="border-destructive-foreground border rounded-md p-2 flex items-start justify-start gap-2">
+              <TriangleAlertIcon className="size-6 shrink-0 text-destructive-foreground stroke-1" />
+              <p className="text-destructive-foreground font-medium text-base text-center">
+                {errorMsg}
+              </p>
+            </div>
+          )}
         </div>
         <form.Subscribe
           selector={(state) => [state.canSubmit, state.isSubmitting]}

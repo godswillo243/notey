@@ -35,4 +35,8 @@ export class AuthAction {
     );
     return res.data;
   }
+  static async logout() {
+    const res = await axiosInstance.post(`/auth/logout`);
+    return res.data;
+  }
 }

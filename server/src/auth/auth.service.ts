@@ -11,7 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import * as crypto from 'crypto';
 import { UsersService } from 'src/users/users.service';
 import { EmailService } from 'src/email/email.service';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/db/models/user.model';
 import { Role } from 'src/db/enums';
@@ -102,13 +102,16 @@ export class AuthService {
 
   async resetPassword(token: string, newPassword: string) {
     const user = await this.userService.findByResetPasswordToken(token);
-    if (!user) throw new BadRequestException('Invalid reset password token.');
+    if (!user)
+      throw new BadRequestException(
+        'Invalid or expired reset password link. Please request a new one.',
+      );
     if (
       user.resetPasswordTokenExpiresAt &&
       user.resetPasswordTokenExpiresAt < new Date()
     )
       throw new BadRequestException(
-        'Reset password token has expired. Please request a new one',
+        'Invalid or expired reset password link. Please request a new one.',
       );
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
@@ -174,11 +177,19 @@ export class AuthService {
   }
 
   async logout(userId: string, res: Response) {
-    await this.userService.update(userId, { refreshToken: null });
+    console.log(userId);
+    const user = await this.userService.update(userId, {
+      refreshToken: null,
+      refreshTokenExpiresAt: null,
+    });
     res.clearCookie('refresh_token');
+    if (!user) throw new Error();
+    return { message: 'Logged out' };
   }
 
-  async refresh(refreshToken: string, res: Response) {
+  async refresh(req: Request, res: Response) {
+    const cookies = req.cookies as Record<string, string>;
+    const refreshToken = cookies.refresh_token;
     if (!refreshToken)
       throw new UnauthorizedException('No refresh token provided');
     let payload: { sub: string; email: string; role: Role };

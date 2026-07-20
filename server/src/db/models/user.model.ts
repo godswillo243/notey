@@ -61,7 +61,7 @@ export class User {
   @prop({
     type: Date,
   })
-  public refreshTokenExpiresAt?: Date;
+  public refreshTokenExpiresAt?: Date | null;
 
   @prop({ default: '' })
   public resetPasswordToken!: string | null;

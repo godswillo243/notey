@@ -8,7 +8,7 @@ export const Route = createFileRoute('/auth')({
 });
 
 function RouteComponent() {
-  const { isSuccess, isPending } = useQuery({
+  const { isSuccess, isFetching } = useQuery({
     queryKey: ['auth-user'],
     queryFn: AuthAction.getAuthUser,
   });
@@ -20,7 +20,7 @@ function RouteComponent() {
   return (
     <div className="w-full h-screen flex flex-col gap-6 bg-background items-center justify-center">
       <h3 className="text-2xl font-semibold text-primary">Notey</h3>
-      {isPending ? (
+      {isFetching ? (
         <Loader2Icon className="size-10 animate-spin" />
       ) : (
         <Outlet />

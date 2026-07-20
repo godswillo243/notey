@@ -18,7 +18,7 @@ export const Route = createFileRoute('/auth/forgot-password')({
 
 function RouteComponent() {
   const [email, setEmail] = useState('');
-  const { data, isPending, mutateAsync } = useMutation({
+  const { data, isPending, mutateAsync, isSuccess } = useMutation({
     mutationFn: AuthAction.forgotPassword,
   });
 
@@ -54,7 +54,7 @@ function RouteComponent() {
           />
           <Button
             variant={'secondary'}
-            disabled={!email || isPending}
+            disabled={!email || isPending || isSuccess}
             className="w-full"
           >
             {isPending && <Loader2Icon className="animate-spin" />}
